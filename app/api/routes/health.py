@@ -13,4 +13,3 @@ async def health_check() -> HealthResponse:
         service="game-test-platform",
         version="0.1.0",
     )
-

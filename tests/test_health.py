@@ -14,4 +14,3 @@ def test_health_check() -> None:
         "service": "game-test-platform",
         "version": "0.1.0",
     }
-

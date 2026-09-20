@@ -1,0 +1,325 @@
+{
+  "info": {
+    "_postman_id": "282d8e63-1b8f-4220-b7ac-1541a11cc4c1",
+    "name": "My Collection",
+    "description": "### Welcome to Postman! This is your first collection. \n\nCollections are your starting point for building and testing APIs. You can use this one to:\n\n• Group related requests\n• Test your API in real-world scenarios\n• Document and share your requests\n\nUpdate the name and overview whenever you’re ready to make it yours.\n\n[Learn more about Postman Collections.](https://learning.postman.com/docs/collections/collections-overview/)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "58010107",
+    "_collection_link": "https://go.postman.co/collection/58010107-282d8e63-1b8f-4220-b7ac-1541a11cc4c1?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "创建测试任务",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"创建成功，状态码为201\", function () {\r\n    pm.response.to.have.status(201);\r\n});\r\n\r\nconst data = pm.response.json();\r\n\r\npm.test(\"响应包含有效的任务ID\", function () {\r\n    pm.expect(data.id).to.be.a(\"number\");\r\n    pm.expect(data.id).to.be.above(0);\r\n});\r\n\r\npm.collectionVariables.set(\"task_id\", data.id);\r\npm.collectionVariables.set(\"poll_count\", 0);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"name\": \"Postman 接口测试\",\r\n  \"test_type\": \"automation\",\r\n  \"platform\": \"windows\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/test-tasks",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "test-tasks"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "查询测试任务",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"查询成功，状态码为200\", function () {\n    pm.response.to.have.status(200);\n});\n\nconst data = pm.response.json();\nconst taskId = Number(pm.collectionVariables.get(\"task_id\"));\nlet pollCount = Number(pm.collectionVariables.get(\"poll_count\") || 0);\n\npm.test(\"返回正确的任务ID\", function () {\n    pm.expect(data.id).to.eql(taskId);\n});\n\npm.test(\"任务状态有效\", function () {\n    pm.expect([\"pending\", \"running\", \"success\", \"failed\"])\n        .to.include(data.status);\n});\n\nif (data.status === \"pending\" || data.status === \"running\") {\n    pollCount++;\n\n    if (pollCount < 10) {\n        pm.collectionVariables.set(\"poll_count\", pollCount);\n        pm.execution.setNextRequest(\"查询测试任务\");\n    } else {\n        pm.test(\"任务在规定次数内结束\", function () {\n            pm.expect.fail(\"轮询10次后任务仍未结束\");\n        });\n        pm.execution.setNextRequest(null);\n    }\n} else {\n    pm.collectionVariables.unset(\"poll_count\");\n    pm.execution.setNextRequest(\"查询任务日志\");\n}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/test-tasks/{{task_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "test-tasks",
+            "{{task_id}}"
+          ]
+        },
+        "description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+      },
+      "response": []
+    },
+    {
+      "name": "查询任务日志",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Successful POST request\", function () {\n    pm.expect(pm.response.code).to.be.oneOf([200, 201]);\n});\n\npm.test(\"日志查询成功\", function () {\n    pm.response.to.have.status(200);\n});\n\nconst logs = pm.response.json();\nconst taskId = Number(\n    pm.collectionVariables.get(\"task_id\")\n);\n\npm.test(\"响应是日志数组\", function () {\n    pm.expect(logs).to.be.an(\"array\");\n    pm.expect(logs.length).to.be.at.least(3);\n    pm.expect(logs.length).to.be.at.most(20);\n});\n\npm.test(\"日志都属于当前任务\", function () {\n    logs.forEach(function (log) {\n        pm.expect(log.task_id).to.eql(taskId);\n    });\n});\n\npm.test(\"任务生命周期正确\", function () {\n    const statuses = logs.map(log => log.status);\n\n    pm.expect(statuses).to.deep.equal([\n        \"pending\",\n        \"running\",\n        \"success\"\n    ]);\n});\n\npm.test(\"日志按时间升序排列\", function () {\n    for (let i = 1; i < logs.length; i++) {\n        pm.expect(\n            new Date(logs[i].created_at).getTime()\n        ).to.be.at.least(\n            new Date(logs[i - 1].created_at).getTime()\n        );\n    }\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n\t\"name\": \"Add your name in the body\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/test-tasks/{{task_id}}/logs?offset=0&limit=20",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "test-tasks",
+            "{{task_id}}",
+            "logs"
+          ],
+          "query": [
+            {
+              "key": "offset",
+              "value": "0"
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            }
+          ]
+        },
+        "description": "This is a POST request, submitting data to an API via the request body. This request submits JSON data, and the data is reflected in the response.\n\nA successful POST request typically returns a `200 OK` or `201 Created` response code."
+      },
+      "response": []
+    },
+    {
+      "name": "日志筛选测试",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"日志查询成功\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\nconst logs = pm.response.json();\r\nconst taskId = Number(pm.collectionVariables.get(\"task_id\"));\r\n\r\npm.test(\"返回结果为非空数组\", function () {\r\n    pm.expect(logs).to.be.an(\"array\");\r\n    pm.expect(logs.length).to.be.above(0);\r\n    pm.expect(logs.length).to.be.at.most(20);\r\n});\r\n\r\npm.test(\"所有日志都属于当前任务\", function () {\r\n    logs.forEach(function (log) {\r\n        pm.expect(log.task_id).to.eql(taskId);\r\n    });\r\n});\r\n\r\npm.test(\"状态和关键词筛选正确\", function () {\r\n    logs.forEach(function (log) {\r\n        pm.expect(log.status).to.eql(\"success\");\r\n        pm.expect(log.message.toLowerCase()).to.include(\"completed\");\r\n    });\r\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/test-tasks/{{task_id}}/logs?status=success&keyword=completed&offset=0&limit=20",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "test-tasks",
+            "{{task_id}}",
+            "logs"
+          ],
+          "query": [
+            {
+              "key": "status",
+              "value": "success"
+            },
+            {
+              "key": "keyword",
+              "value": "completed"
+            },
+            {
+              "key": "offset",
+              "value": "0"
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "查询测试报告",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"报告查询成功\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\nconst report = pm.response.json();\r\nconst taskId = Number(\r\n    pm.collectionVariables.get(\"task_id\")\r\n);\r\n\r\npm.test(\"报告属于当前任务\", function () {\r\n    pm.expect(report.task.id).to.eql(taskId);\r\n    pm.expect(report.task.status).to.eql(\"success\");\r\n});\r\n\r\npm.test(\"日志总数正确\", function () {\r\n    pm.expect(report.logs).to.be.an(\"array\");\r\n    pm.expect(report.total_logs).to.eql(\r\n        report.logs.length\r\n    );\r\n});\r\n\r\npm.test(\"执行耗时有效\", function () {\r\n    pm.expect(\r\n        report.execution_duration_seconds\r\n    ).to.be.a(\"number\");\r\n    pm.expect(\r\n        report.execution_duration_seconds\r\n    ).to.be.at.least(0);\r\n});\r\n\r\nconst previousTaskId =\r\n    pm.collectionVariables.get(\"report_task_id\");\r\n\r\nconst previousGeneratedAt =\r\n    pm.collectionVariables.get(\"report_generated_at\");\r\n\r\nif (\r\n    previousTaskId === String(taskId) &&\r\n    previousGeneratedAt\r\n) {\r\n    pm.test(\"重复查询命中报告缓存\", function () {\r\n        pm.expect(report.generated_at).to.eql(\r\n            previousGeneratedAt\r\n        );\r\n    });\r\n}\r\n\r\npm.collectionVariables.set(\r\n    \"report_task_id\",\r\n    String(taskId)\r\n);\r\n\r\npm.collectionVariables.set(\r\n    \"report_generated_at\",\r\n    report.generated_at\r\n);\r\n\r\npm.test(\"成功任务没有失败分析\", function () {\r\n    const report = pm.response.json();\r\n    pm.expect(report.failure_analysis).to.eql(null);\r\n});\r\n\r\npm.collectionVariables.set(\r\n    \"first_generated_at\",\r\n    pm.response.json().generated_at\r\n);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/test-tasks/{{task_id}}/report",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "test-tasks",
+            "{{task_id}}",
+            "report"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "查询测试报告-缓存验证",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"查询报告成功\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\nconst report = pm.response.json();\r\nconst firstGeneratedAt =\r\n    pm.collectionVariables.get(\"first_generated_at\");\r\n\r\npm.test(\"第二次报告命中Redis缓存\", function () {\r\n    pm.expect(report.generated_at).to.eql(firstGeneratedAt);\r\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/test-tasks/{{task_id}}/report",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "test-tasks",
+            "{{task_id}}",
+            "report"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "创建任务-非法平台",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"非法平台返回422\", function () {\r\n    pm.response.to.have.status(422);\r\n});\r\n\r\npm.test(\"响应包含参数校验错误\", function () {\r\n    const data = pm.response.json();\r\n    pm.expect(data).to.have.property(\"detail\");\r\n    pm.expect(data.detail).to.be.an(\"array\");\r\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"name\": \"非法平台测试\",\r\n  \"test_type\": \"automation\",\r\n  \"platform\": \"playstation\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/test-tasks",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "test-tasks"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "查询不存在的任务",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"不存在的任务返回404\", function () {\r\n    pm.response.to.have.status(404);\r\n});\r\n\r\npm.test(\"响应包含错误信息\", function () {\r\n    const data = pm.response.json();\r\n    pm.expect(data).to.have.property(\"detail\");\r\n    pm.expect(data.detail).to.be.a(\"string\");\r\n});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/test-tasks/999999",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "test-tasks",
+            "999999"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "task_id",
+      "value": ""
+    },
+    {
+      "key": "report_task_id",
+      "value": ""
+    },
+    {
+      "key": "report_generated_at",
+      "value": ""
+    },
+    {
+      "key": "base_url",
+      "value": ""
+    },
+    {
+      "key": "first_generated_at",
+      "value": ""
+    }
+  ]
+}
