@@ -6,6 +6,7 @@ REDIS_URL = os.getenv(
 )
 
 REPORT_CACHE_TTL_SECONDS = int(os.getenv("REPORT_CACHE_TTL_SECONDS", "300"))
+TASK_EXECUTION_DELAY_SECONDS = float(os.getenv("TASK_EXECUTION_DELAY_SECONDS", "2"))
 
 # Development-only defaults make the sample runnable after cloning. Production
 # deployments must override both values with secrets from the environment.

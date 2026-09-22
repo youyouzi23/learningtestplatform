@@ -33,6 +33,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       API_ADMIN_KEY: local-admin-key
       API_VIEWER_KEY: local-viewer-key
+      TASK_EXECUTION_DELAY_SECONDS: "0.1"
     ports:
       - "8000:8000"
     depends_on:

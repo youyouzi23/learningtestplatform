@@ -9,7 +9,11 @@ from fastapi import (
 from redis import Redis
 from sqlalchemy.orm import Session
 
-from app.config import REDIS_URL, REPORT_CACHE_TTL_SECONDS
+from app.config import (
+    REDIS_URL,
+    REPORT_CACHE_TTL_SECONDS,
+    TASK_EXECUTION_DELAY_SECONDS,
+)
 from app.database import SessionLocal, get_db
 from app.repositories.sqlalchemy_bugsinpy_result import (
     SQLAlchemyBugsInPyResultRepository,
@@ -38,8 +42,6 @@ from app.security import get_api_role, require_admin
 from app.services.report_cache import RedisReportCache
 from app.services.test_task import TaskService
 from app.services.unity_test_report import parse_unity_test_report
-
-TASK_EXECUTION_DELAY_SECONDS = 2
 
 redis_client = Redis.from_url(
     REDIS_URL,
