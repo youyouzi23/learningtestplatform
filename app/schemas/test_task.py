@@ -10,6 +10,8 @@ TestTaskStatus = Literal[
     "failed",
 ]
 
+TestOutcome = Literal["passed", "failed", "error", "skipped"]
+
 
 class TestTaskCreate(BaseModel):
     name: str
@@ -68,6 +70,24 @@ class UnityTestResultResponse(UnityTestResultCreate):
     task_id: int
 
 
+class BugsInPyResultCreate(BaseModel):
+    project: str = Field(min_length=1, max_length=100)
+    bug_id: int = Field(gt=0)
+    trigger_test: str = Field(min_length=1, max_length=255)
+    buggy_outcome: TestOutcome
+    fixed_outcome: TestOutcome
+    failure_log: str = Field(min_length=1, max_length=10_000)
+
+
+class BugsInPyResultResponse(BugsInPyResultCreate):
+    id: int
+    task_id: int
+    category: str
+    reason: str
+    suggestion: str
+    regression_passed: bool
+
+
 class TestTaskReportResponse(BaseModel):
     task: TestTaskResponse
     logs: list[TestTaskLogResponse]
@@ -76,3 +96,4 @@ class TestTaskReportResponse(BaseModel):
     generated_at: datetime
     failure_analysis: FailureAnalysisResponse | None = None
     unity_results: list[UnityTestResultResponse] = Field(default_factory=list)
+    bugsinpy_results: list[BugsInPyResultResponse] = Field(default_factory=list)

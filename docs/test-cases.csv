@@ -1,0 +1,16 @@
+case_id,module,test_type,priority,precondition,steps,expected_result
+API-001,任务创建,功能/黑盒,P0,管理员密钥有效,POST合法任务数据,返回201且生成任务ID
+API-002,任务创建,边界,P0,管理员密钥有效,POST非法platform,返回422且不创建数据
+API-003,批量创建,边界,P1,管理员密钥有效,POST空任务数组,返回422
+API-004,任务查询,异常,P1,查看者密钥有效,查询不存在ID,返回404
+API-005,日志筛选,功能,P1,任务已执行,按status和keyword查询,只返回匹配日志
+API-006,日志分页,边界,P1,任务至少三条日志,分别查询offset 0和2,分页无重复且顺序正确
+SEC-001,API鉴权,安全,P0,无密钥,访问受保护接口,返回401
+SEC-002,API鉴权,安全,P0,查看者密钥有效,尝试创建任务,返回403
+CACHE-001,报告缓存,集成,P1,Redis可用,连续查询同一完成报告,第二次返回相同generated_at
+CACHE-002,缓存降级,异常,P0,Redis连接失败,查询任务报告,从数据库返回报告且接口不失败
+DB-001,MySQL持久化,集成,P0,MySQL可用,建表写入并重新查询,读取到持久化数据
+UNITY-001,Unity报告,集成,P0,任务存在,上传合法NUnit XML,解析计数并写入统一报告
+UNITY-002,Unity报告,异常,P1,任务存在,上传非法XML,返回422
+BUGS-001,BugsInPy,回归,P0,任务存在,导入buggy失败/fixed通过结果,regression_passed为true
+SYS-001,端到端流程,系统/黑盒,P0,API已启动,创建任务并查询日志和报告,Newman场景全部通过

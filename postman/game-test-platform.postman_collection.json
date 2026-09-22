@@ -1,11 +1,19 @@
 {
   "info": {
     "_postman_id": "282d8e63-1b8f-4220-b7ac-1541a11cc4c1",
-    "name": "My Collection",
-    "description": "### Welcome to Postman! This is your first collection. \n\nCollections are your starting point for building and testing APIs. You can use this one to:\n\n• Group related requests\n• Test your API in real-world scenarios\n• Document and share your requests\n\nUpdate the name and overview whenever you’re ready to make it yours.\n\n[Learn more about Postman Collections.](https://learning.postman.com/docs/collections/collections-overview/)",
+    "name": "Test Platform API",
+    "description": "Black-box API regression covering task creation, status polling, filtering, pagination, reports and invalid input. Authentication is inherited from the collection-level X-API-Key setting.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "58010107",
     "_collection_link": "https://go.postman.co/collection/58010107-282d8e63-1b8f-4220-b7ac-1541a11cc4c1?source=collection_link"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {"key": "value", "value": "{{api_key}}", "type": "string"},
+      {"key": "key", "value": "X-API-Key", "type": "string"},
+      {"key": "in", "value": "header", "type": "string"}
+    ]
   },
   "item": [
     {
@@ -315,7 +323,11 @@
     },
     {
       "key": "base_url",
-      "value": ""
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "api_key",
+      "value": "dev-admin-key"
     },
     {
       "key": "first_generated_at",

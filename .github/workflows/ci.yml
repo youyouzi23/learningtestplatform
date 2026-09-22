@@ -5,28 +5,93 @@ on:
   pull_request:
 
 jobs:
-  test:
+  unit-tests:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: requirements-dev.txt
-
-      - name: Install dependencies
-        run: python -m pip install -r requirements-dev.txt
-
+      - run: python -m pip install -r requirements-dev.txt
       - name: Lint
         run: python -m ruff check .
-
       - name: Check formatting
         run: python -m ruff format --check .
+      - name: Unit and API tests with coverage
+        run: python -m pytest --ignore=tests/integration --cov=app --cov-report=term-missing --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage
+          path: coverage.xml
 
-      - name: Run tests
-        run: python -m pytest
+  integration-tests:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: game_test_platform
+          MYSQL_USER: game_test
+          MYSQL_PASSWORD: game_test_password
+          MYSQL_ROOT_PASSWORD: root_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot_password"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+    env:
+      RUN_INTEGRATION_TESTS: "1"
+      INTEGRATION_DATABASE_URL: mysql+pymysql://game_test:game_test_password@127.0.0.1:3306/game_test_platform?charset=utf8mb4
+      INTEGRATION_REDIS_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Real MySQL and Redis integration tests
+        run: python -m pytest tests/integration
+
+  postman-contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: python -m pip install -r requirements.txt
+      - run: npm install --global newman
+      - name: Start API
+        run: |
+          python -m uvicorn app.main:app > uvicorn.log 2>&1 &
+          for i in {1..20}; do
+            curl --fail http://127.0.0.1:8000/health && break
+            sleep 1
+          done
+      - name: Run Postman black-box scenarios
+        run: newman run postman/game-test-platform.postman_collection.json
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-server-log
+          path: uvicorn.log

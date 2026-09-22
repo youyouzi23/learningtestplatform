@@ -12,6 +12,7 @@ from app.main import app
 from app.services.report_cache import InMemoryReportCache
 
 client = TestClient(app)
+client.headers.update({"X-API-Key": "dev-admin-key"})
 
 
 @pytest.fixture(autouse=True)
@@ -495,3 +496,78 @@ def test_import_invalid_unity_result_returns_422() -> None:
     assert response.json() == {
         "detail": "Unity test report is not valid XML",
     }
+
+
+def test_missing_and_invalid_api_key_return_401() -> None:
+    unauthenticated_client = TestClient(app)
+
+    missing_response = unauthenticated_client.get("/test-tasks/1")
+    invalid_response = unauthenticated_client.get(
+        "/test-tasks/1",
+        headers={"X-API-Key": "wrong-key"},
+    )
+
+    assert missing_response.status_code == 401
+    assert invalid_response.status_code == 401
+
+
+def test_viewer_can_read_but_cannot_create() -> None:
+    create_response = client.post(
+        "/test-tasks",
+        json={
+            "name": "权限边界测试",
+            "test_type": "security",
+            "platform": "windows",
+        },
+    )
+    task_id = create_response.json()["id"]
+    viewer_headers = {"X-API-Key": "dev-viewer-key"}
+
+    read_response = client.get(
+        f"/test-tasks/{task_id}",
+        headers=viewer_headers,
+    )
+    forbidden_response = client.post(
+        "/test-tasks",
+        headers=viewer_headers,
+        json={
+            "name": "越权创建任务",
+            "test_type": "security",
+            "platform": "windows",
+        },
+    )
+
+    assert read_response.status_code == 200
+    assert forbidden_response.status_code == 403
+
+
+def test_import_bugsinpy_result_and_compare_versions() -> None:
+    create_response = client.post(
+        "/test-tasks",
+        json={
+            "name": "BugsInPy 回归验证",
+            "test_type": "automation",
+            "platform": "windows",
+        },
+    )
+    task_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/test-tasks/{task_id}/bugsinpy-results",
+        json={
+            "project": "youtube-dl",
+            "bug_id": 1,
+            "trigger_test": "test_YoutubeDL.py::TestFormatSelection::test_format",
+            "buggy_outcome": "failed",
+            "fixed_outcome": "passed",
+            "failure_log": "Timeout while selecting the requested format",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["regression_passed"] is True
+    assert response.json()["category"] == "timeout"
+
+    report = client.get(f"/test-tasks/{task_id}/report").json()
+    assert len(report["bugsinpy_results"]) == 1
+    assert report["bugsinpy_results"][0]["project"] == "youtube-dl"

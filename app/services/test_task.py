@@ -3,6 +3,8 @@ from datetime import UTC, datetime
 from typing import Protocol
 
 from app.schemas.test_task import (
+    BugsInPyResultCreate,
+    BugsInPyResultResponse,
     FailureAnalysisResponse,
     TestTaskCreate,
     TestTaskLogResponse,
@@ -62,6 +64,19 @@ class UnityTestResultRepository(Protocol):
     ) -> list[UnityTestResultResponse]: ...
 
 
+class BugsInPyResultRepository(Protocol):
+    def save(
+        self,
+        task_id: int,
+        result: BugsInPyResultCreate,
+    ) -> BugsInPyResultResponse: ...
+
+    def get_by_task_id(
+        self,
+        task_id: int,
+    ) -> list[BugsInPyResultResponse]: ...
+
+
 class TaskService:
     def __init__(
         self,
@@ -69,11 +84,13 @@ class TaskService:
         log_repository: TaskLogRepository,
         report_cache: ReportCache | None = None,
         unity_result_repository: UnityTestResultRepository | None = None,
+        bugsinpy_result_repository: BugsInPyResultRepository | None = None,
     ) -> None:
         self.task_repository = task_repository
         self.log_repository = log_repository
         self.report_cache = report_cache
         self.unity_result_repository = unity_result_repository
+        self.bugsinpy_result_repository = bugsinpy_result_repository
 
     def add_log(
         self,
@@ -198,6 +215,33 @@ class TaskService:
             self.report_cache.delete(task_id)
         return saved_result
 
+    def record_bugsinpy_result(
+        self,
+        task_id: int,
+        result: BugsInPyResultCreate,
+    ) -> BugsInPyResultResponse | None:
+        if self.task_repository.get(task_id) is None:
+            return None
+        if self.bugsinpy_result_repository is None:
+            raise RuntimeError("BugsInPy result repository is not configured")
+
+        saved_result = self.bugsinpy_result_repository.save(task_id, result)
+        status: TestTaskStatus = (
+            "success" if saved_result.regression_passed else "failed"
+        )
+        self.add_log(
+            task_id,
+            status,
+            (
+                f"BugsInPy {result.project}#{result.bug_id}: "
+                f"buggy={result.buggy_outcome}, fixed={result.fixed_outcome}, "
+                f"regression_passed={saved_result.regression_passed}"
+            ),
+        )
+        if self.report_cache is not None:
+            self.report_cache.delete(task_id)
+        return saved_result
+
     def get_report(self, task_id: int) -> TestTaskReportResponse | None:
         if self.report_cache is not None:
             cached_report = self.report_cache.get(task_id)
@@ -252,6 +296,11 @@ class TaskService:
             unity_results=(
                 self.unity_result_repository.get_by_task_id(task_id)
                 if self.unity_result_repository is not None
+                else []
+            ),
+            bugsinpy_results=(
+                self.bugsinpy_result_repository.get_by_task_id(task_id)
+                if self.bugsinpy_result_repository is not None
                 else []
             ),
         )

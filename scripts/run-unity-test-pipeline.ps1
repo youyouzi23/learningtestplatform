@@ -3,6 +3,7 @@ param(
     [string]$BaseUrl = "http://127.0.0.1:8000",
     [string]$UnityExe = $env:UNITY_EXE,
     [string]$UnityProjectPath = $env:UNITY_PROJECT_PATH,
+    [string]$ApiKey = $env:API_ADMIN_KEY,
     [string]$TaskName = "Unity Match3 automated test",
     [ValidateRange(60, 3600)]
     [int]$UnityTimeoutSeconds = 600
@@ -12,6 +13,12 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $BaseUrl = $BaseUrl.TrimEnd("/")
+
+if ([string]::IsNullOrWhiteSpace($ApiKey)) {
+    throw "ApiKey is required. Pass -ApiKey or set API_ADMIN_KEY."
+}
+
+$apiHeaders = @{ "X-API-Key" = $ApiKey }
 
 if ([string]::IsNullOrWhiteSpace($UnityExe)) {
     throw "UnityExe is required. Pass -UnityExe or set UNITY_EXE."
@@ -57,6 +64,7 @@ Write-Host "Creating a Unity automation task ..."
 $task = Invoke-RestMethod `
     -Method Post `
     -Uri "$BaseUrl/test-tasks" `
+    -Headers $apiHeaders `
     -ContentType "application/json" `
     -Body $taskBody
 
@@ -146,6 +154,7 @@ foreach ($platform in $platforms) {
     $upload = Invoke-RestMethod `
         -Method Post `
         -Uri "$BaseUrl/test-tasks/$taskId/unity-results" `
+        -Headers $apiHeaders `
         -ContentType "application/xml" `
         -InFile $resultPath
 
@@ -163,7 +172,10 @@ foreach ($platform in $platforms) {
 }
 
 Write-Host "Fetching the combined task report ..."
-$report = Invoke-RestMethod -Method Get -Uri "$BaseUrl/test-tasks/$taskId/report"
+$report = Invoke-RestMethod `
+    -Method Get `
+    -Uri "$BaseUrl/test-tasks/$taskId/report" `
+    -Headers $apiHeaders
 $reportPath = Join-Path $runDirectory "platform-report.json"
 $report | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $reportPath -Encoding UTF8
 

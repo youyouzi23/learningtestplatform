@@ -1,0 +1,13 @@
+{
+  "source": "https://github.com/reproducing-research-projects/BugsInPy",
+  "cases": [
+    {
+      "project": "youtube-dl",
+      "bug_id": 2,
+      "trigger_test": "REPLACE_WITH_TRIGGER_TEST_FROM_BUG_INFO",
+      "buggy_outcome": "failed",
+      "fixed_outcome": "passed",
+      "failure_log": "REPLACE_WITH_FAILURE_OUTPUT_FROM_THE_BUGGY_REVISION"
+    }
+  ]
+}
